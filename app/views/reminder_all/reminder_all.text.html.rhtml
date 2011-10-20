@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+  </head>
+  <body>
+    <h1>Hey, <%= assignee.firstname %></h1>
+    <p>
+      I've noticed that you have some issues in your queue that haven't been updated in at least <%= days.to_s %>
+	  
+	  Just to remind you the following issues may need attention
+	  <ol>
+	  	<% issue_items.each do | issue | %>
+		 <li><%= issue.id.to_s + " " + issue.author %> <a href="<%=issue.url>%>"><%=issue.subject%></a></li> 
+		<% end %>
+	 </ol> 
+    </p>
+     
+  </body>
+</html>
+a\
+
