@@ -36,54 +36,42 @@ require File.expand_path(File.dirname(__FILE__) + "/../../../../../config/enviro
 require "rake"
 require "actionmailer"
 
-class Reminder_all < ActionMailer::Base
-  @mailSubject = "Reminder from Apple Data Manager"
-  @base_url = "http://localhost:3000/issue/"
+class ReminderMail < ActionMailer::Base
+   mailSubject = "Reminder from Apple Data Manager"
   
-  def self.reminders_all(options={})
-    days = options[:days] || 7
-    project = options[:project] ? Project.find(options[:project]) : nil
-    tracker = options[:tracker] ? Tracker.find(options[:tracker]) : nil
-
-    s = ARCondition.new ["#{IssueStatus.table_name}.is_closed = ? AND #{Issue.table_name}.updated_on <= ?", false, (Time.now - days.days).to_date]
-    s << "#{Project.table_name}.status = #{Project::STATUS_ACTIVE}"
-    s << "#{Issue.table_name}.project_id = #{project.id}" if project
-    s << "#{Issue.table_name}.tracker_id = #{tracker.id}" if tracker
-    issues_by_assignee = Issue.find(:all, :include => [:status, :assigned_to, :project, :tracker, :author],
-                                          :conditions => s.conditions
-                                    ).group_by(&:assigned_to)
-    issues_by_assignee.each do |assignee, issues|
-	issue_items = Array.new
-
-		if(assignee != nil && issues != nil)	
-			issues.each do | issue |
-			assignees << MailIssue.new(issue.id, issue.subject, issue)
-			end
-			
-		end
-		ApplicationMailer.create_signed_up("davidortz@childrens.harvard.edu") 
-		puts mail_text
-	end
+   def reminder(assignee, issues)
+      base_url = "http://localhost:3000/issues/"
+      recipients    assignee.mail
+      from          "Data Request Manager <no.reply@carra.net>"
+      subject       "Something needs attention"
+      sent_on       Time.now
+      body	    :assignee => assignee, :days => 7, :issues => issues, :base_url => base_url
+   end
+    
 end
 namespace :redmine do
-  task :send_reminders_all => :environment do
-    options = {}
-    options[:days] = ENV['days'].to_i if ENV['days']
-    options[:project] = ENV['project'] if ENV['project']
-    options[:tracker] = ENV['tracker'].to_i if ENV['tracker']
+   task :send_reminders_all => :environment do
+      options = {}
+      options[:days] = ENV['days'].to_i if ENV['days']
+      options[:project] = ENV['project'] if ENV['project']
+      options[:tracker] = ENV['tracker'].to_i if ENV['tracker']
+      days = options[:days] || 7
 
-   	Reminder_all.reminders_all(options)
+      project = options[:project] ? Project.find(options[:project]) : nil
+      tracker = options[:tracker] ? Tracker.find(options[:tracker]) : nil
+
+      s = ARCondition.new ["#{IssueStatus.table_name}.is_closed = ? AND #{Issue.table_name}.updated_on <= ?", false, (Time.now - days.days).to_date]
+      s << "#{Project.table_name}.status = #{Project::STATUS_ACTIVE}"
+      s << "#{Issue.table_name}.project_id = #{project.id}" if project
+      s << "#{Issue.table_name}.tracker_id = #{tracker.id}" if tracker
+      issues_by_assignee = Issue.find(:all, :include => [:status, :assigned_to, :project, :tracker, :author],
+                                          :conditions => s.conditions
+                                    ).group_by(&:assigned_to)
+      #send out per user emails
+      issues_by_assignee.each do |assignee, issues|
+	 email = ReminderMail.create_reminder(assignee, issues)	
+	 puts email
+      end
   end
 end
-end
 
-class MailIsue
-	attr_accessor :issue_id, :subject, :author
-
-	def initialize(issue_id, subject, author)
-		@issue_id = issue_id
-		@subject = subject
-		@author = author
-	end
-
-end
